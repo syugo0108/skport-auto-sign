@@ -17,6 +17,7 @@ skport自動簽到script，每月約可自動領取260石，堪比蚊子腿。
 * **安全** - 自行部屬至Google Apps Script，不必擔心資料外洩的問題
 * **免費** - Google Apps Script目前是免費使用的佛心服務
 * **簡單** - 無須電腦瀏覽器即可自動幫你簽到，並由 Discord 或 Telegram 自動通知
+* **靈活** - 支援 Google Apps Script 與 GitHub Actions 兩種部署方式
 
 ## 配置
 1. 進入[Google Apps Script](https://script.google.com/home/start)，新增專案，名稱可自訂。
@@ -27,6 +28,43 @@ skport自動簽到script，每月約可自動領取260石，堪比蚊子腿。
    選取活動來源: 時間驅動
    選取時間型觸發條件類型: 日計時器
    選取時段: 自行選擇，建議選擇0900~1500之離峰任意時段
+
+## 配置 (GitHub Actions)
+
+除了 Google Apps Script 之外的另一種選擇。透過 GitHub Actions（免費）每日自動執行排程。
+
+### 前置需求
+- GitHub 帳號
+- 您的 SKPORT SK_OAUTH_CRED_KEY（與 GAS 版相同）
+
+### 步驟
+1. Fork 或 Clone 此專案
+2. 前往您的 Repository → Settings → Secrets and variables → Actions
+3. 新增以下 Repository Secrets：
+
+| Secret 名稱 | 必填 | 說明 |
+|---|---|---|
+| PROFILES | 是 | JSON 格式的帳號設定陣列（詳見下方） |
+| DISCORD_WEBHOOK | 否 | Discord webhook URL，用於通知 |
+| DISCORD_USER_ID | 否 | 您的 Discord 使用者 ID，用於錯誤時 tag |
+
+4. PROFILES 格式（JSON）：
+```json
+[
+  {
+    "SK_OAUTH_CRED_KEY": "your-cred-key",
+    "id": "your-game-id",
+    "server": "2",
+    "language": "zh_Hant",
+    "accountName": "您的暱稱"
+  }
+]
+```
+
+若有多個帳號，請在陣列中新增更多物件。
+
+5. 工作流程會在每天 UTC 06:00（台灣時間 14:00）自動執行。
+   您也可以手動觸發：Actions → SKPORT Auto Sign-in → Run workflow。
 
 ## config檔設定
 
@@ -155,4 +193,5 @@ const telegramBotToken = "6XXXXXXXXX:AAAAAAAAAAXXXXXXXXXX8888888888Peko"
 ![image](https://github.com/canaria3406/skport-auto-sign/blob/main/pic/01.png)
 
 ## Changelog
+2026-02-11 新增 GitHub Actions 支援
 2026-01-29 專案公開

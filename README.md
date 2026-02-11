@@ -17,6 +17,7 @@ Supports **Arknights:Endfield**. Support multiple accounts.
 * **Secure** - The script can be self-deployed to Google Apps Script, no worries about data leaks.
 * **Free** - Google Apps Script is currently a free service.
 * **Simple** - The script can run without a browser and will automatically notify you through Discord or Telegram.
+* **Flexible** - Supports both Google Apps Script and GitHub Actions deployment.
 
 ## Setup
 1. Go to [Google Apps Script](https://script.google.com/home/start) and create a new project with your custom name.
@@ -28,6 +29,43 @@ Supports **Arknights:Endfield**. Support multiple accounts.
    Select the event source: Time-driven
    Select the type of time based trigger: Day timer
    Select the time of day: recommended to choose any off-peak time between 0900 to 1500.
+
+## Setup (GitHub Actions)
+
+An alternative to Google Apps Script. Runs on GitHub Actions (free) with daily cron schedule.
+
+### Prerequisites
+- A GitHub account
+- Your SKPORT SK_OAUTH_CRED_KEY (same as GAS version)
+
+### Steps
+1. Fork or clone this repository
+2. Go to your repository's Settings → Secrets and variables → Actions
+3. Add the following Repository Secrets:
+
+| Secret Name | Required | Description |
+|---|---|---|
+| PROFILES | Yes | JSON array of profile objects (see below) |
+| DISCORD_WEBHOOK | No | Discord webhook URL for notifications |
+| DISCORD_USER_ID | No | Your Discord user ID for error pings |
+
+4. PROFILES format (JSON):
+```json
+[
+  {
+    "SK_OAUTH_CRED_KEY": "your-cred-key",
+    "id": "your-game-id",
+    "server": "2",
+    "language": "en",
+    "accountName": "YOUR NICKNAME"
+  }
+]
+```
+
+For multiple accounts, add more objects to the array.
+
+5. The workflow runs automatically every day at UTC 06:00 (JST 15:00).
+   You can also trigger it manually from Actions → SKPORT Auto Sign-in → Run workflow.
 
 ## Configuration
 
@@ -157,4 +195,5 @@ If you have already check in today, it will give a notify.
 ![image](https://github.com/canaria3406/skport-auto-sign/blob/main/pic/01.png)
 
 ## Changelog
+2026-02-11 Added GitHub Actions support.
 2026-01-29 Project launched.

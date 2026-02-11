@@ -1,0 +1,13 @@
+{
+  "name": "skport-auto-sign",
+  "version": "1.0.0",
+  "description": "Auto sign-in for SKPORT (Arknights: Endfield) - GitHub Actions version",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "license": "MIT"
+}
