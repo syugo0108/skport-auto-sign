@@ -68,9 +68,27 @@ function computeSign(path, body, timestamp, signToken) {
   return md5Hex;
 }
 
+// --- Token normalization ---
+
+function normalizeToken(token) {
+  if (!token) return token;
+  // Step 1: URL-decode if the token contains percent-encoded chars (e.g. from cookie copy)
+  if (token.includes('%')) {
+    try { token = decodeURIComponent(token); } catch (e) { /* keep original */ }
+  }
+  // Step 2: Convert base64url to standard base64 (- → +, _ → /)
+  token = token.replace(/-/g, '+').replace(/_/g, '/');
+  // Step 3: Add padding if missing
+  const pad = token.length % 4;
+  if (pad === 2) token += '==';
+  else if (pad === 3) token += '=';
+  return token;
+}
+
 // --- Auth flow ---
 
 async function getOAuthCode(accountToken) {
+  accountToken = normalizeToken(accountToken);
   const payload = JSON.stringify({ token: accountToken, appCode: APP_CODE, type: 0 });
   const headers = { 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(payload) };
   const res = await httpsPost(URLS.GRANT, headers, payload);
