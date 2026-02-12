@@ -1,4 +1,6 @@
 // 環境変数からconfig読み取り
+const https = require('https');
+const zlib = require('zlib');
 const profiles = JSON.parse(process.env.PROFILES || '[]');
 const discordWebhook = process.env.DISCORD_WEBHOOK || '';
 const myDiscordID = process.env.DISCORD_USER_ID || '';
@@ -30,6 +32,59 @@ const headerDict = {
     'TE': 'trailers',
   },
 };
+
+function decompressResponse(res) {
+  const encoding = res.headers['content-encoding'];
+  if (encoding === 'gzip') return res.pipe(zlib.createGunzip());
+  if (encoding === 'deflate') return res.pipe(zlib.createInflate());
+  if (encoding === 'br') return res.pipe(zlib.createBrotliDecompress());
+  return res;
+}
+
+function httpsPost(url, headers) {
+  return new Promise((resolve, reject) => {
+    const urlObj = new URL(url);
+    const req = https.request({
+      hostname: urlObj.hostname,
+      path: urlObj.pathname,
+      method: 'POST',
+      headers: headers,
+    }, (res) => {
+      const stream = decompressResponse(res);
+      let data = '';
+      stream.on('data', chunk => data += chunk);
+      stream.on('end', () => {
+        try {
+          resolve({ status: res.statusCode, json: JSON.parse(data) });
+        } catch (e) {
+          resolve({ status: res.statusCode, json: { message: `Parse error: ${data}` } });
+        }
+      });
+      stream.on('error', reject);
+    });
+    req.on('error', reject);
+    req.end();
+  });
+}
+
+function httpsPostWithBody(url, headers, body) {
+  return new Promise((resolve, reject) => {
+    const urlObj = new URL(url);
+    const req = https.request({
+      hostname: urlObj.hostname,
+      path: urlObj.pathname,
+      method: 'POST',
+      headers: headers,
+    }, (res) => {
+      let data = '';
+      res.on('data', chunk => data += chunk);
+      res.on('end', () => resolve());
+    });
+    req.on('error', reject);
+    req.write(body);
+    req.end();
+  });
+}
 
 async function main() {
   const messages = await Promise.all(profiles.map(autoSignFunction));
@@ -65,10 +120,7 @@ async function autoSignFunction({
   for (const urlnheaders of urlsnheaders) {
     await new Promise(r => setTimeout(r, sleepTime));
     try {
-      const res = await fetch(urlnheaders.url, {
-        method: 'POST',
-        headers: urlnheaders.headers,
-      });
+      const res = await httpsPost(urlnheaders.url, urlnheaders.headers);
       httpResponses.push(res);
     } catch (e) {
       console.error(`Fetch error for ${accountName}:`, e);
@@ -83,7 +135,7 @@ async function autoSignFunction({
       response += `\n${gameName}: fetch failed`;
       continue;
     }
-    const responseJson = await skportResponse.json();
+    const responseJson = skportResponse.json;
     const checkInResult = responseJson.message;
     const gameName = Object.keys(urlDict).find(key => urlDict[key] === urlsnheaders[i].url)?.replace(/_/g, ' ');
     const isError = checkInResult != "OK";
@@ -101,11 +153,7 @@ async function postWebhook(data) {
   });
 
   try {
-    await fetch(discordWebhook, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: payload,
-    });
+    await httpsPostWithBody(discordWebhook, { 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(payload) }, payload);
   } catch (e) {
     console.error('Discord webhook error:', e);
   }
