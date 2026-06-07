@@ -5,7 +5,7 @@ name: Keepalive
 # 打って活動を発生させ、無効化を防ぐ。
 on:
   schedule:
-    - cron: '0 0 */7 * *'    # 約7日ごと（毎月 1,8,15,22,29日）
+    - cron: '0 0 * * *'    # 毎日（空コミットは50日以上無活動の時のみ）
   workflow_dispatch:
 
 permissions:
