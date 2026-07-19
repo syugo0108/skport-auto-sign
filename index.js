@@ -57,6 +57,17 @@ function httpsGet(url, headers) {
   return httpsRequest(url, 'GET', headers, null);
 }
 
+// Public Actions logs must never contain credentials, tokens, user IDs, or role IDs.
+function safeApiMessage(message) {
+  if (message === undefined || message === null) return '';
+  return String(message).replace(/[A-Za-z0-9_-]{24,}/g, '[masked]').slice(0, 200);
+}
+
+function logApiDiagnostic(label, res, details = {}) {
+  const data = res && res.data ? res.data : {};
+  console.log(`[diagnostic] ${label} status=${res && res.status !== undefined ? res.status : 'unknown'} code=${data.code !== undefined ? data.code : 'unknown'} message="${safeApiMessage(data.message)}"${Object.entries(details).map(([key, value]) => ` ${key}=${value}`).join('')}`);
+}
+
 // --- Crypto: sign computation ---
 
 function computeSign(path, body, timestamp, signToken) {
@@ -92,6 +103,7 @@ async function getOAuthCode(accountToken) {
   const payload = JSON.stringify({ token: accountToken, appCode: APP_CODE, type: 0 });
   const headers = { 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(payload) };
   const res = await httpsPost(URLS.GRANT, headers, payload);
+  logApiDiagnostic('grant', res, { codePresent: !!(res.data && res.data.data && res.data.data.code) });
   if (res.data && res.data.status === 0 && res.data.data && res.data.data.code) {
     return res.data.data.code;
   }
@@ -102,6 +114,7 @@ async function getCred(oauthCode) {
   const payload = JSON.stringify({ kind: 1, code: oauthCode });
   const headers = { 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(payload) };
   const res = await httpsPost(URLS.GENERATE_CRED, headers, payload);
+  logApiDiagnostic('generate_cred', res, { credPresent: !!(res.data && res.data.data && res.data.data.cred) });
   if (res.data && res.data.code === 0 && res.data.data && res.data.data.cred) {
     return res.data.data.cred;
   }
@@ -112,6 +125,7 @@ async function getSignToken(cred) {
   const timestamp = String(Math.floor(Date.now() / 1000));
   const headers = { cred: cred, platform: PLATFORM, vName: VNAME, timestamp: timestamp, 'sk-language': 'en' };
   const res = await httpsGet(URLS.REFRESH_TOKEN, headers);
+  logApiDiagnostic('refresh', res, { tokenPresent: !!(res.data && res.data.data && res.data.data.token) });
   if (res.data && res.data.code === 0 && res.data.data && res.data.data.token) {
     return res.data.data.token;
   }
@@ -124,6 +138,20 @@ async function getPlayerBinding(cred, signToken) {
   const sign = computeSign(path, '', timestamp, signToken);
   const headers = { cred: cred, platform: PLATFORM, vName: VNAME, timestamp: timestamp, 'sk-language': 'en', sign: sign };
   const res = await httpsGet(URLS.BINDING, headers);
+  const list = res.data && res.data.data && res.data.data.list;
+  const endfield = Array.isArray(list) && list.find(app => app && app.appCode === 'endfield');
+  const bindingListPresent = !!(endfield && Array.isArray(endfield.bindingList));
+  let roleConstructed = false;
+  if (bindingListPresent && endfield.bindingList[0]) {
+    const binding = endfield.bindingList[0];
+    roleConstructed = !!(binding.defaultRole || (binding.roles && binding.roles[0]));
+  }
+  logApiDiagnostic('binding', res, {
+    listPresent: Array.isArray(list),
+    endfieldPresent: !!endfield,
+    bindingListPresent,
+    roleConstructed,
+  });
   if (res.data && res.data.code === 0 && res.data.data && res.data.data.list) {
     for (const app of res.data.data.list) {
       if (app.appCode === 'endfield' && app.bindingList) {
@@ -188,6 +216,7 @@ async function autoSignFunction({
 
     const res = await httpsPost(URLS.ATTENDANCE, headers, null);
     const json = res.data;
+    logApiDiagnostic('attendance', res, { gameRolePresent: !!gameRole });
     const apiMessage = json.code === 19001 ? '現在のキャラクター位置を取得できません。ゲームにログインしていることを確認してください。' : (json.message || JSON.stringify(json));
 
     if (json.code === 0) {
