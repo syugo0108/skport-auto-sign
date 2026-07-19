@@ -12,6 +12,11 @@ const discord_notify = !!discordWebhook;
 const PLATFORM = '3';
 const VNAME = '1.0.0';
 const APP_CODE = '6eb76d4e13aa36e6';
+const CLIENT_HEADERS = {
+  'User-Agent': 'Skport/0.7.0 (com.gryphline.skport; build:700089; Android 33; ) Okhttp/5.1.0',
+  Origin: 'https://game.skport.com',
+  Referer: 'https://game.skport.com/',
+};
 
 const URLS = {
   GRANT: 'https://as.gryphline.com/user/oauth2/v2/grant',
@@ -112,18 +117,21 @@ async function getOAuthCode(accountToken) {
 
 async function getCred(oauthCode) {
   const payload = JSON.stringify({ kind: 1, code: oauthCode });
-  const headers = { 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(payload) };
+  const headers = { ...CLIENT_HEADERS, platform: PLATFORM, 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(payload) };
   const res = await httpsPost(URLS.GENERATE_CRED, headers, payload);
-  logApiDiagnostic('generate_cred', res, { credPresent: !!(res.data && res.data.data && res.data.data.cred) });
+  logApiDiagnostic('generate_cred', res, {
+    credPresent: !!(res.data && res.data.data && res.data.data.cred),
+    tokenPresent: !!(res.data && res.data.data && res.data.data.token),
+  });
   if (res.data && res.data.code === 0 && res.data.data && res.data.data.cred) {
-    return res.data.data.cred;
+    return { cred: res.data.data.cred, token: res.data.data.token };
   }
   throw new Error(`認証情報の取得に失敗しました: ${JSON.stringify(res.data)}`);
 }
 
 async function getSignToken(cred) {
   const timestamp = String(Math.floor(Date.now() / 1000));
-  const headers = { cred: cred, platform: PLATFORM, vName: VNAME, timestamp: timestamp, 'sk-language': 'en' };
+  const headers = { ...CLIENT_HEADERS, cred: cred, platform: PLATFORM, vName: VNAME, timestamp: timestamp, 'sk-language': 'en' };
   const res = await httpsGet(URLS.REFRESH_TOKEN, headers);
   logApiDiagnostic('refresh', res, { tokenPresent: !!(res.data && res.data.data && res.data.data.token) });
   if (res.data && res.data.code === 0 && res.data.data && res.data.data.token) {
@@ -136,7 +144,7 @@ async function getPlayerBinding(cred, signToken) {
   const timestamp = String(Math.floor(Date.now() / 1000));
   const path = '/api/v1/game/player/binding';
   const sign = computeSign(path, '', timestamp, signToken);
-  const headers = { cred: cred, platform: PLATFORM, vName: VNAME, timestamp: timestamp, 'sk-language': 'en', sign: sign };
+  const headers = { ...CLIENT_HEADERS, cred: cred, platform: PLATFORM, vName: VNAME, timestamp: timestamp, 'sk-language': 'en', sign: sign };
   const res = await httpsGet(URLS.BINDING, headers);
   const list = res.data && res.data.data && res.data.data.list;
   const endfield = Array.isArray(list) && list.find(app => app && app.appCode === 'endfield');
@@ -191,10 +199,12 @@ async function autoSignFunction({
     const oauthCode = await getOAuthCode(ACCOUNT_TOKEN);
 
     // Step 2: Generate cred
-    const cred = await getCred(oauthCode);
+    const credResult = await getCred(oauthCode);
+    const cred = credResult.cred;
 
-    // Step 3: Get sign token
-    const signToken = await getSignToken(cred);
+    // Step 3: Use the generate_cred_by_code token as the HMAC salt.
+    // Keep refresh only as a compatibility fallback for responses without data.token.
+    const signToken = credResult.token || await getSignToken(cred);
 
     // Step 4: Get player binding (game role)
     const gameRole = await getPlayerBinding(cred, signToken);
@@ -211,6 +221,7 @@ async function autoSignFunction({
       'sk-language': language,
       sign: sign,
       'Content-Type': 'application/json',
+      ...CLIENT_HEADERS,
     };
     if (gameRole) headers['sk-game-role'] = gameRole;
 
