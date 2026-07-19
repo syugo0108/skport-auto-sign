@@ -39,7 +39,7 @@ function httpsRequest(url, method, headers, body) {
         try {
           resolve({ status: res.statusCode, data: JSON.parse(data) });
         } catch (e) {
-          resolve({ status: res.statusCode, data: { message: `Parse error: ${data.slice(0, 200)}` } });
+          resolve({ status: res.statusCode, data: { message: `解析エラー: ${data.slice(0, 200)}` } });
         }
       });
     });
@@ -95,7 +95,7 @@ async function getOAuthCode(accountToken) {
   if (res.data && res.data.status === 0 && res.data.data && res.data.data.code) {
     return res.data.data.code;
   }
-  throw new Error(`Failed to get OAuth code: ${JSON.stringify(res.data)}`);
+  throw new Error(`OAuthコードの取得に失敗しました: ${JSON.stringify(res.data)}`);
 }
 
 async function getCred(oauthCode) {
@@ -105,7 +105,7 @@ async function getCred(oauthCode) {
   if (res.data && res.data.code === 0 && res.data.data && res.data.data.cred) {
     return res.data.data.cred;
   }
-  throw new Error(`Failed to get cred: ${JSON.stringify(res.data)}`);
+  throw new Error(`認証情報の取得に失敗しました: ${JSON.stringify(res.data)}`);
 }
 
 async function getSignToken(cred) {
@@ -115,7 +115,7 @@ async function getSignToken(cred) {
   if (res.data && res.data.code === 0 && res.data.data && res.data.data.token) {
     return res.data.data.token;
   }
-  throw new Error(`Failed to get sign token: ${JSON.stringify(res.data)}`);
+  throw new Error(`署名トークンの取得に失敗しました: ${JSON.stringify(res.data)}`);
 }
 
 async function getPlayerBinding(cred, signToken) {
@@ -157,7 +157,7 @@ async function autoSignFunction({
   language = 'en',
   accountName
 }) {
-  let response = `Check-in for ${accountName}`;
+  let response = `${accountName} のチェックイン`;
   try {
     // Step 1: OAuth grant
     const oauthCode = await getOAuthCode(ACCOUNT_TOKEN);
@@ -188,16 +188,17 @@ async function autoSignFunction({
 
     const res = await httpsPost(URLS.ATTENDANCE, headers, null);
     const json = res.data;
+    const apiMessage = json.code === 19001 ? '現在のキャラクター位置を取得できません。ゲームにログインしていることを確認してください。' : (json.message || JSON.stringify(json));
 
     if (json.code === 0) {
-      response += '\nEndfield: OK';
+      response += '\nEndfield: 成功';
     } else if (json.code === 1001 || json.code === 10001) {
-      response += '\nEndfield: Already signed in today';
+      response += '\nEndfield: 本日はチェックイン済み';
     } else {
-      response += `\nEndfield: ${discordPing()}${json.message || JSON.stringify(json)}`;
+      response += `\nEndfield: ${discordPing()}${apiMessage}`;
     }
   } catch (e) {
-    response += `\nEndfield: ${discordPing()}Error - ${e.message}`;
+    response += `\nEndfield: ${discordPing()}エラー - ${e.message}`;
   }
   return response;
 }
@@ -211,7 +212,7 @@ async function postWebhook(data) {
   try {
     await httpsPost(discordWebhook, { 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(payload) }, payload);
   } catch (e) {
-    console.error('Discord webhook error:', e);
+    console.error('Discord Webhookエラー:', e);
   }
 }
 
