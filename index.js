@@ -175,6 +175,10 @@ async function getPlayerBinding(cred, signToken) {
 // --- Main logic ---
 
 async function main() {
+  if (!Array.isArray(profiles) || profiles.length === 0) {
+    console.error('[result] PROFILES is empty; nothing to do');
+    process.exit(1);
+  }
   const results = await Promise.all(profiles.map(autoSignFunction));
   const skportResp = results.map(result => result.message).join('\n\n');
   console.log(skportResp);
