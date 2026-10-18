@@ -36,7 +36,7 @@ An alternative to Google Apps Script. Runs on GitHub Actions (free) with daily c
 
 ### Prerequisites
 - A GitHub account
-- Your SKPORT SK_OAUTH_CRED_KEY (same as GAS version)
+- Your SKPORT `ACCOUNT_TOKEN` cookie value (see [How to get ACCOUNT_TOKEN](#how-to-get-account_token))
 
 ### Steps
 1. Fork or clone this repository
@@ -53,21 +53,43 @@ An alternative to Google Apps Script. Runs on GitHub Actions (free) with daily c
 ```json
 [
   {
-    "SK_OAUTH_CRED_KEY": "your-cred-key",
-    "id": "your-game-id",
-    "server": "2",
+    "ACCOUNT_TOKEN": "your-account-token",
     "language": "en",
     "accountName": "YOUR NICKNAME"
   }
 ]
 ```
 
+| Field | Required | Description |
+|---|---|---|
+| `ACCOUNT_TOKEN` | Yes | The `ACCOUNT_TOKEN` cookie value from `game.skport.com` (see below) |
+| `language` | No | `en` / `ja` / `zh_Hant` / `zh_Hans` / `ko` / `ru_RU` (default: `en`) |
+| `accountName` | No | Nickname shown in the notification (if omitted, it is displayed as `undefined のチェックイン`) |
+| `id` / `server` | No | Not used by the GitHub Actions script. The game role is detected automatically from the binding API. |
+
 For multiple accounts, add more objects to the array.
 
-5. The workflow runs automatically every day at UTC 06:00 (JST 15:00).
+5. The workflow runs automatically every day at 22:00 UTC (07:00 JST, next day).
+   GitHub may delay scheduled runs by minutes to hours.
    You can also trigger it manually from Actions → SKPORT Auto Sign-in → Run workflow.
 
-## Configuration
+> The job still reports success even when the check-in fails, so do not rely on the green check. Check the Discord notification, or the `[diagnostic] grant status=` line in the run log.
+
+### How to get ACCOUNT_TOKEN
+
+1. Open the [SKPORT check-in page](https://game.skport.com/endfield/sign-in) and log in.
+2. Press F12 and open the **Application** tab.
+3. **Keep DevTools open and reload the page (F5)** so that the cookie list is up to date.
+4. Expand **Cookies** → `.skport.com` (it may also appear under `https://www.skport.com` or another `skport.com` subdomain) and copy the **Value** of `ACCOUNT_TOKEN`.
+   - `ACCOUNT_TOKEN` is an **httpOnly** cookie, so it cannot be read with `document.cookie`; copy it from DevTools.
+   - If it is not listed, open the **Network** tab, reload, click a request to `*.skport.com`, and copy the value from the request's `Cookie` header — only the part between `ACCOUNT_TOKEN=` and the next `;`. A URL-encoded value (`%2F`, `%3D`, …) can be pasted as is, because the script decodes it.
+5. Keep this value secret. Store it only in the repository Secret — never in a file, an issue, or a log. (The Actions logs of this public repository show `accountName` and the result, but never the token.)
+
+> The lifetime of the token is not published: it has been observed to last about three months here, and other projects report a few weeks to a few months. It also becomes invalid when you log out. If the workflow reports `Login status expired.`, log in again and repeat the steps above. The same message is returned for any token the server does not recognise (for example, a value copied from a different cookie), so make sure you copied `ACCOUNT_TOKEN` itself.
+
+## Configuration (Google Apps Script)
+
+This section applies to the Google Apps Script deployment (`src/main-discord.gs`), which uses `SK_OAUTH_CRED_KEY`. The GitHub Actions deployment uses the `PROFILES` secret instead — see [Setup (GitHub Actions)](#setup-github-actions).
 
 ```javascript
 const profiles = [
@@ -195,5 +217,6 @@ If you have already check in today, it will give a notify.
 ![image](https://github.com/canaria3406/skport-auto-sign/blob/main/pic/01.png)
 
 ## Changelog
+2026-10-18 Documented the current GitHub Actions `PROFILES` format (`ACCOUNT_TOKEN`). The previous `SK_OAUTH_CRED_KEY` example was outdated and caused HTTP 400 (`token ... failed on the 'required' tag`).
 2026-02-11 Added GitHub Actions support.
 2026-01-29 Project launched.

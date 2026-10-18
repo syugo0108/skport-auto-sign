@@ -35,7 +35,7 @@ skport自動簽到script，每月約可自動領取260石，堪比蚊子腿。
 
 ### 前置需求
 - GitHub 帳號
-- 您的 SKPORT SK_OAUTH_CRED_KEY（與 GAS 版相同）
+- 您的 SKPORT `ACCOUNT_TOKEN` cookie 值（取得方式見下方）
 
 ### 步驟
 1. Fork 或 Clone 此專案
@@ -52,21 +52,43 @@ skport自動簽到script，每月約可自動領取260石，堪比蚊子腿。
 ```json
 [
   {
-    "SK_OAUTH_CRED_KEY": "your-cred-key",
-    "id": "your-game-id",
-    "server": "2",
+    "ACCOUNT_TOKEN": "your-account-token",
     "language": "zh_Hant",
     "accountName": "您的暱稱"
   }
 ]
 ```
 
+| 欄位 | 必填 | 說明 |
+|---|---|---|
+| `ACCOUNT_TOKEN` | 是 | `game.skport.com` 的 `ACCOUNT_TOKEN` cookie 值（取得方式見下方） |
+| `language` | 否 | `en` / `ja` / `zh_Hant` / `zh_Hans` / `ko` / `ru_RU`（預設 `en`） |
+| `accountName` | 否 | 通知中顯示的暱稱（省略時會顯示為 `undefined のチェックイン`） |
+| `id` / `server` | 否 | GitHub Actions 版不使用。遊戲角色會由 binding API 自動取得。 |
+
 若有多個帳號，請在陣列中新增更多物件。
 
-5. 工作流程會在每天 UTC 06:00（台灣時間 14:00）自動執行。
+5. 工作流程會在每天 UTC 22:00（台灣時間隔日 06:00）自動執行。
+   GitHub 的排程可能延遲數分鐘至數小時。
    您也可以手動觸發：Actions → SKPORT Auto Sign-in → Run workflow。
 
-## config檔設定
+> 簽到失敗時 job 仍會顯示成功，請不要只看綠色勾勾。請確認 Discord 通知，或執行記錄中的 `[diagnostic] grant status=` 這一行。
+
+### 如何取得 ACCOUNT_TOKEN
+
+1. 開啟 [SKPORT 簽到頁面](https://game.skport.com/endfield/sign-in) 並登入。
+2. 按 F12 開啟 DevTools，切換到 **Application** 分頁。
+3. **保持 DevTools 開啟並重新載入頁面（F5）**，讓 cookie 清單保持最新。
+4. 展開 **Cookies** → `.skport.com`（也可能位於 `https://www.skport.com` 或其他 `skport.com` 子網域），複製 `ACCOUNT_TOKEN` 的 **Value**。
+   - `ACCOUNT_TOKEN` 是 **httpOnly** cookie，無法用 `document.cookie` 取得，請從 DevTools 複製。
+   - 若找不到，請切到 **Network** 分頁重新載入，點選任一 `*.skport.com` 的請求，複製 Request Headers 的 `Cookie` 中 `ACCOUNT_TOKEN=` 之後到下一個 `;` 之間的值。若值經過 URL 編碼（`%2F`、`%3D` 等），可直接貼上，script 會自動解碼。
+5. 此值請務必保密，只能存放在 Repository Secret 中，不要寫入檔案、issue 或 log。（此公開 Repository 的 Actions 記錄會顯示 `accountName` 與結果，但不會輸出 token。）
+
+> 此 token 的壽命並未公開：本專案觀察到約三個月，其他專案則回報數週至數月。登出也會使其失效。若 workflow 回報 `Login status expired.`，請重新登入並重複上述步驟。伺服器對任何無法辨識的 token 都會回傳相同訊息（例如貼成其他 cookie 的值），請確認您複製的是 `ACCOUNT_TOKEN` 本身。
+
+## config檔設定 (Google Apps Script)
+
+本節適用於 Google Apps Script 部署（`src/main-discord.gs`），該版本使用 `SK_OAUTH_CRED_KEY`。GitHub Actions 部署請改用 `PROFILES` secret，詳見 [配置 (GitHub Actions)](#配置-github-actions)。
 
 ```javascript
 const profiles = [
@@ -193,5 +215,6 @@ const telegramBotToken = "6XXXXXXXXX:AAAAAAAAAAXXXXXXXXXX8888888888Peko"
 ![image](https://github.com/canaria3406/skport-auto-sign/blob/main/pic/01.png)
 
 ## Changelog
+2026-10-18 更新 GitHub Actions 的 `PROFILES` 格式說明（`ACCOUNT_TOKEN`）。舊的 `SK_OAUTH_CRED_KEY` 範例已過時，會導致 HTTP 400（`token ... failed on the 'required' tag`）。
 2026-02-11 新增 GitHub Actions 支援
 2026-01-29 專案公開
