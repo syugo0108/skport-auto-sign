@@ -73,7 +73,7 @@ For multiple accounts, add more objects to the array.
    GitHub may delay scheduled runs by minutes to hours.
    You can also trigger it manually from Actions → SKPORT Auto Sign-in → Run workflow.
 
-> The job still reports success even when the check-in fails, so do not rely on the green check. Check the Discord notification, or the `[diagnostic] grant status=` line in the run log.
+> A failing check-in now makes the run fail (exit 1). The Discord notification is still sent, and the `[diagnostic] grant status=` line in the run log shows where it broke.
 
 ### How to get ACCOUNT_TOKEN
 
@@ -217,6 +217,7 @@ If you have already check in today, it will give a notify.
 ![image](https://github.com/canaria3406/skport-auto-sign/blob/main/pic/01.png)
 
 ## Changelog
+2026-10-18 The GitHub Actions run now fails (exit 1) when a check-in fails, so a broken token is no longer hidden behind a green check.
 2026-10-18 Documented the current GitHub Actions `PROFILES` format (`ACCOUNT_TOKEN`). The previous `SK_OAUTH_CRED_KEY` example was outdated and caused HTTP 400 (`token ... failed on the 'required' tag`).
 2026-02-11 Added GitHub Actions support.
 2026-01-29 Project launched.

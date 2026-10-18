@@ -72,7 +72,7 @@ skport自動簽到script，每月約可自動領取260石，堪比蚊子腿。
    GitHub 的排程可能延遲數分鐘至數小時。
    您也可以手動觸發：Actions → SKPORT Auto Sign-in → Run workflow。
 
-> 簽到失敗時 job 仍會顯示成功，請不要只看綠色勾勾。請確認 Discord 通知，或執行記錄中的 `[diagnostic] grant status=` 這一行。
+> 簽到失敗時 job 現在會變成失敗（exit 1）。Discord 通知仍會送出，執行記錄中的 `[diagnostic] grant status=` 可看出是在哪一步失敗。
 
 ### 如何取得 ACCOUNT_TOKEN
 
@@ -215,6 +215,7 @@ const telegramBotToken = "6XXXXXXXXX:AAAAAAAAAAXXXXXXXXXX8888888888Peko"
 ![image](https://github.com/canaria3406/skport-auto-sign/blob/main/pic/01.png)
 
 ## Changelog
+2026-10-18 簽到失敗時 GitHub Actions 會以 exit 1 結束（顯示為失敗），不再被綠色勾勾掩蓋。
 2026-10-18 更新 GitHub Actions 的 `PROFILES` 格式說明（`ACCOUNT_TOKEN`）。舊的 `SK_OAUTH_CRED_KEY` 範例已過時，會導致 HTTP 400（`token ... failed on the 'required' tag`）。
 2026-02-11 新增 GitHub Actions 支援
 2026-01-29 專案公開
