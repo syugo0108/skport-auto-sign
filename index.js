@@ -175,11 +175,17 @@ async function getPlayerBinding(cred, signToken) {
 // --- Main logic ---
 
 async function main() {
-  const messages = await Promise.all(profiles.map(autoSignFunction));
-  const skportResp = messages.join('\n\n');
+  const results = await Promise.all(profiles.map(autoSignFunction));
+  const skportResp = results.map(result => result.message).join('\n\n');
   console.log(skportResp);
   if (discord_notify && discordWebhook) {
     await postWebhook(skportResp);
+  }
+  const failed = results.filter(result => !result.ok);
+  if (failed.length > 0) {
+    // Exit non-zero so that a broken token or an API error is visible in GitHub Actions.
+    console.error(`[result] ${failed.length}/${results.length} profile(s) failed`);
+    process.exit(1);
   }
   process.exit(0);
 }
@@ -194,6 +200,7 @@ async function autoSignFunction({
   accountName
 }) {
   let response = `${accountName} のチェックイン`;
+  let ok = true;
   try {
     // Step 1: OAuth grant
     const oauthCode = await getOAuthCode(ACCOUNT_TOKEN);
@@ -235,12 +242,14 @@ async function autoSignFunction({
     } else if (json.code === 1001 || json.code === 10001) {
       response += '\nEndfield: 本日はチェックイン済み';
     } else {
+      ok = false;
       response += `\nEndfield: ${discordPing()}${apiMessage}`;
     }
   } catch (e) {
+    ok = false;
     response += `\nEndfield: ${discordPing()}エラー - ${e.message}`;
   }
-  return response;
+  return { message: response, ok };
 }
 
 async function postWebhook(data) {
