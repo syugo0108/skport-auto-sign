@@ -166,16 +166,17 @@ async function getPlayerBinding(cred, signToken) {
     bindingListPresent,
     roleConstructed,
   });
-  if (res.data && res.data.code === 0 && res.data.data && res.data.data.list) {
+  const apiOk = !!(res.data && res.data.code === 0);
+  if (apiOk && res.data.data && res.data.data.list) {
     for (const app of res.data.data.list) {
       if (app.appCode === 'endfield' && app.bindingList) {
         const binding = app.bindingList[0];
         const role = binding.defaultRole || (binding.roles && binding.roles[0]);
-        if (role) return `3_${role.roleId}_${role.serverId}`;
+        if (role) return { role: `3_${role.roleId}_${role.serverId}`, ok: true };
       }
     }
   }
-  return null;
+  return { role: null, ok: apiOk };
 }
 
 // --- Main logic ---
@@ -224,7 +225,10 @@ async function autoSignFunction({
     const signToken = credResult.token || await getSignToken(cred);
 
     // Step 4: Get player binding (game role)
-    const gameRole = await getPlayerBinding(cred, signToken);
+    const binding = await getPlayerBinding(cred, signToken);
+    const gameRole = binding.role;
+    const bindingNote = binding.ok ? '' : '（ロール情報の取得に失敗しました）';
+    if (!binding.ok) ok = false;
 
     // Step 5: Attendance request
     const timestamp = String(Math.floor(Date.now() / 1000));
@@ -248,12 +252,12 @@ async function autoSignFunction({
     const apiMessage = json.code === 19001 ? '現在のキャラクター位置を取得できません。ゲームにログインしていることを確認してください。' : (json.message || JSON.stringify(json));
 
     if (json.code === 0) {
-      response += '\nEndfield: 成功';
+      response += `\nEndfield: 成功${bindingNote}`;
     } else if (json.code === 1001 || json.code === 10001) {
-      response += '\nEndfield: 本日はチェックイン済み';
+      response += `\nEndfield: 本日はチェックイン済み${bindingNote}`;
     } else {
       ok = false;
-      response += `\nEndfield: ${discordPing()}${apiMessage}`;
+      response += `\nEndfield: ${discordPing()}${apiMessage}${bindingNote}`;
     }
   } catch (e) {
     ok = false;
