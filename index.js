@@ -182,7 +182,11 @@ async function getPlayerBinding(cred, signToken) {
 // --- Main logic ---
 
 async function main() {
-  if (!Array.isArray(profiles) || profiles.length === 0) {
+  if (!Array.isArray(profiles)) {
+    console.error('[result] PROFILES must be a JSON array');
+    process.exit(1);
+  }
+  if (profiles.length === 0) {
     console.error('[result] PROFILES is empty; nothing to do');
     process.exit(1);
   }
