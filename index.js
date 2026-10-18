@@ -1,7 +1,13 @@
 // 環境変数からconfig読み取り
 const https = require('https');
 const crypto = require('crypto');
-const profiles = JSON.parse(process.env.PROFILES || '[]');
+let profiles;
+try {
+  profiles = JSON.parse(process.env.PROFILES || '[]');
+} catch (e) {
+  console.error('PROFILES is not valid JSON. Fix the PROFILES secret.');
+  process.exit(1);
+}
 const discordWebhook = process.env.DISCORD_WEBHOOK || '';
 const myDiscordID = process.env.DISCORD_USER_ID || '';
 const discord_notify = !!discordWebhook;
